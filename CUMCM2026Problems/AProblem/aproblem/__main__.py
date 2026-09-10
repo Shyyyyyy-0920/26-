@@ -1,3 +1,5 @@
+"""命令行入口：组装参数、运行指定问题并生成预览结果与图像。"""
+
 from __future__ import annotations
 
 import argparse
@@ -11,31 +13,51 @@ from .validation import validate_result
 
 
 def parse_args() -> argparse.Namespace:
+    """解析命令行参数，并限制题号只能为 1～4。"""
+
     parser = argparse.ArgumentParser(description="CUMCM 2026 A题药材烘干数值模拟")
-    parser.add_argument("--question", type=int, choices=(1, 2, 3, 4), default=1)
-    parser.add_argument("--attachments", type=Path, default=None)
+    parser.add_argument(
+        "--question",
+        type=int,
+        choices=(1, 2, 3, 4),
+        default=1,
+        help="要计算的问题编号，默认为问题1",
+    )
+    parser.add_argument(
+        "--attachments",
+        type=Path,
+        default=None,
+        help="附件目录；不填写时使用项目约定的默认目录",
+    )
     parser.add_argument("--dt", type=float, default=0.5, help="内部时间步长（秒）")
     return parser.parse_args()
 
 
 def main() -> None:
+    """执行一次完整仿真，并输出结果路径和基础物理检查报告。"""
+
     args = parse_args()
     paths = ProjectPaths.discover(attachments=args.attachments)
     config = SimulationConfig(dt_s=args.dt)
+
+    # 四个问题共用相同入口，只在场景组装阶段切换物性、时长和半径函数。
     model, result = run_question(args.question, paths, config)
     files = write_preview_files(paths.outputs, args.question, model, result)
     figure_path = paths.outputs / f"question{args.question}_final_profiles.png"
     plot_final_profiles(figure_path, model, result)
     report = validate_result(model, result)
 
-    print(f"Question {args.question} completed at t={result.time_s[-1]:.3f} s")
+    print(f"问题 {args.question} 计算完成，最终时刻：{result.time_s[-1]:.3f} s")
     if result.event_time_s is not None:
-        print(f"Threshold event: {result.event_time_s:.3f} s ({result.event_time_s / 3600:.6f} h)")
-    print(report)
+        print(
+            "达到含水率阈值的时刻："
+            f"{result.event_time_s:.3f} s（{result.event_time_s / 3600:.6f} h）"
+        )
+    print(f"基础验证报告：{report}")
+    print("已生成文件：")
     for path in [*files, figure_path]:
-        print(path)
+        print(f"- {path}")
 
 
 if __name__ == "__main__":
     main()
-

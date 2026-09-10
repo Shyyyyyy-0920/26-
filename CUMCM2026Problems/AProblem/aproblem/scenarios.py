@@ -1,4 +1,6 @@
 #四问组装
+"""定义四个问题的差异，并把数据、物性、模型和积分器组装起来。"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -15,6 +17,8 @@ from .physics import Question1Properties, Question23Properties, Question4Propert
 
 @dataclass(frozen=True)
 class QuestionSpec:
+    """单个问题的终止时间、保存间隔、收缩和阈值事件配置。"""
+
     end_time_s: float
     save_every_s: float
     shrinking: bool
@@ -30,13 +34,15 @@ QUESTION_SPECS = {
 
 
 def _property_model(question: int):
+    """根据问题编号选择题目规定的物性公式。"""
+
     if question == 1:
         return Question1Properties()
     if question in (2, 3):
         return Question23Properties()
     if question == 4:
         return Question4Properties()
-    raise ValueError(f"Unsupported question: {question}")
+    raise ValueError(f"不支持的问题编号：{question}")
 
 
 def run_question(
@@ -44,8 +50,10 @@ def run_question(
     paths: ProjectPaths,
     config: SimulationConfig | None = None,
 ) -> tuple[DryingModel, SimulationResult]:
+    """组装并运行指定问题，返回模型对象和完整仿真结果。"""
+
     if question not in QUESTION_SPECS:
-        raise ValueError("question must be one of 1, 2, 3, 4")
+        raise ValueError("问题编号 question 必须是 1、2、3、4 之一")
     cfg = config or SimulationConfig()
     cfg.validate()
     spec = QUESTION_SPECS[question]
@@ -55,6 +63,7 @@ def run_question(
         plateau_temperature_c=cfg.plateau_temperature_c,
         plateau_moisture=cfg.plateau_moisture,
     )
+    # 只有问题4读取收缩半径；其余问题始终使用初始固定半径。
     radius_data = load_radius(paths.radius_file) if spec.shrinking else None
     radius_function = radius_data if radius_data is not None else lambda _time: cfg.radius_m
 
@@ -77,6 +86,7 @@ def run_question(
 
     event = None
     if spec.stop_at_threshold:
+        # 使用全场最大含水率判断“药材各处均低于阈值”，不预设中心必为最大值。
         event = lambda _time, state: float(np.max(state[node_count:]) - cfg.moisture_threshold)
 
     result = integrate_heun(
@@ -88,4 +98,3 @@ def run_question(
         event=event,
     )
     return model, result
-

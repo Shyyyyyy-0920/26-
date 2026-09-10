@@ -1,3 +1,5 @@
+"""热湿有限体积模型基础物理性质的单元测试。"""
+
 import numpy as np
 
 from aproblem.grid import RadialGrid
@@ -6,6 +8,8 @@ from aproblem.physics import Question1Properties
 
 
 def test_uniform_state_equal_to_environment_is_stationary() -> None:
+    """内部状态等于环境边界时，温度和含水率均不应发生变化。"""
+
     grid = RadialGrid(intervals=20)
     model = DryingModel(
         grid=grid,
@@ -17,4 +21,3 @@ def test_uniform_state_equal_to_environment_is_stationary() -> None:
     )
     state = np.concatenate((np.full(21, 28.0), np.full(21, 2.55)))
     assert np.allclose(model.rhs(0.0, state), 0.0)
-

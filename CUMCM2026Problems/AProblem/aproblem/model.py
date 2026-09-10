@@ -1,4 +1,6 @@
 #热湿有限体积 RHS
+"""建立温度—含水率耦合的一维圆柱有限体积半离散模型。"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -15,6 +17,8 @@ RadiusFunction = Callable[[float], float]
 
 
 def harmonic_mean(left: np.ndarray, right: np.ndarray) -> np.ndarray:
+    """计算相邻节点物性的调和平均，作为当前界面系数基线。"""
+
     denominator = left + right
     return np.divide(
         2.0 * left * right,
@@ -26,6 +30,12 @@ def harmonic_mean(left: np.ndarray, right: np.ndarray) -> np.ndarray:
 
 @dataclass(frozen=True)
 class DryingModel:
+    """封装网格、物性、环境边界和热湿有限体积右端项。
+
+    状态向量前半段为温度，后半段为干基含水率。问题4通过固定节点编号
+    配合随时间变化的物理半径实现材料坐标网格，不额外添加收缩拖曳项。
+    """
+
     grid: RadialGrid
     properties: PropertyModel
     environment: EnvironmentFunction
@@ -35,19 +45,28 @@ class DryingModel:
 
     @property
     def node_count(self) -> int:
+        """返回包含圆心和表面的径向节点总数。"""
+
         return self.grid.intervals + 1
 
     def split_state(self, state: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """将一维状态向量拆分为温度场和含水率场。"""
+
         if state.shape != (2 * self.node_count,):
-            raise ValueError(f"Expected state shape {(2 * self.node_count,)}, got {state.shape}")
+            raise ValueError(
+                f"状态向量形状应为 {(2 * self.node_count,)}，实际为 {state.shape}"
+            )
         return state[: self.node_count], state[self.node_count :]
 
     def rhs(self, time_s: float, state: np.ndarray) -> np.ndarray:
+        """计算当前时刻温度和含水率在所有节点上的变化率。"""
+
         temperature, moisture = self.split_state(np.asarray(state, dtype=float))
         geometry = self.grid.geometry(self.radius(time_s))
         material = self.properties.evaluate(temperature, moisture)
         environment_temperature, environment_moisture = self.environment(time_s)
 
+        # 先计算全部内部界面热通量，再以相反符号计入相邻控制体，保证守恒。
         heat_rate = np.zeros(self.node_count)
         conductivity_faces = harmonic_mean(material.conductivity[:-1], material.conductivity[1:])
         heat_conductance = (
@@ -58,6 +77,7 @@ class DryingModel:
         delta_temperature = temperature[1:] - temperature[:-1]
         heat_rate[:-1] += heat_conductance * delta_temperature
         heat_rate[1:] -= heat_conductance * delta_temperature
+        # 表面采用第三类边界条件：烘房温度高于表面时，热量流入药材。
         heat_rate[-1] += (
             self.heat_transfer_coefficient
             * geometry.surface_area_per_length_m
@@ -67,6 +87,7 @@ class DryingModel:
             material.density * material.heat_capacity * geometry.volumes_per_length_m2
         )
 
+        # 水分通量与热通量使用同一套控制体几何和符号约定。
         moisture_rate = np.zeros(self.node_count)
         diffusivity_faces = harmonic_mean(material.diffusivity[:-1], material.diffusivity[1:])
         moisture_conductance = (
@@ -77,6 +98,7 @@ class DryingModel:
         delta_moisture = moisture[1:] - moisture[:-1]
         moisture_rate[:-1] += moisture_conductance * delta_moisture
         moisture_rate[1:] -= moisture_conductance * delta_moisture
+        # 烘房含水率更低时，该项为负，表示药材从表面失水。
         moisture_rate[-1] += (
             self.mass_transfer_coefficient
             * geometry.surface_area_per_length_m
@@ -85,4 +107,3 @@ class DryingModel:
         d_moisture = moisture_rate / geometry.volumes_per_length_m2
 
         return np.concatenate((d_temperature, d_moisture))
-
