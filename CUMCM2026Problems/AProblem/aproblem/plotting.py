@@ -4,6 +4,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import matplotlib
+
+# 使用无界面的 Agg 后端，保证比赛电脑或终端没有 Tk 图形环境时仍能保存图片。
+matplotlib.use("Agg")
+
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -40,6 +45,7 @@ def plot_final_profiles(
     temperature, moisture = split_result(model, result)
     radius_cm = model.grid.geometry(model.radius(result.time_s[-1])).nodes_m * 100.0
     final_time_h = result.time_s[-1] / 3600.0
+    end_face_text = "含端面等效修正" if model.include_end_faces else "仅考虑圆柱侧面"
 
     figure, axes = plt.subplots(1, 2, figsize=(11, 4.5))
     axes[0].plot(
@@ -76,7 +82,9 @@ def plot_final_profiles(
     axes[1].legend()
     axes[1].grid(alpha=0.3, linestyle="--")
 
-    figure.suptitle(f"药材最终径向温湿分布（t = {final_time_h:.3f} h）")
+    figure.suptitle(
+        f"药材最终径向温湿分布（t = {final_time_h:.3f} h，{end_face_text}）"
+    )
     figure.tight_layout(rect=(0.0, 0.0, 1.0, 0.93))
     path.parent.mkdir(parents=True, exist_ok=True)
     figure.savefig(path, dpi=180, bbox_inches="tight")

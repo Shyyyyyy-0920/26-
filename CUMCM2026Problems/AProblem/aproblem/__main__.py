@@ -29,7 +29,18 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="附件目录；不填写时使用项目约定的默认目录",
     )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=None,
+        help="结果输出目录；不填写时使用项目内的 outputs 目录",
+    )
     parser.add_argument("--dt", type=float, default=0.5, help="内部时间步长（秒）")
+    parser.add_argument(
+        "--ignore-end-faces",
+        action="store_true",
+        help="关闭两个端面的轴向平均等效源项，仅计算圆柱侧面换热和传质",
+    )
     return parser.parse_args()
 
 
@@ -38,12 +49,16 @@ def main() -> None:
 
     args = parse_args()
     paths = ProjectPaths.discover(attachments=args.attachments)
-    config = SimulationConfig(dt_s=args.dt)
+    output_dir = (args.output_dir or paths.outputs).resolve()
+    config = SimulationConfig(
+        dt_s=args.dt,
+        include_end_faces=not args.ignore_end_faces,
+    )
 
     # 四个问题共用相同入口，只在场景组装阶段切换物性、时长和半径函数。
     model, result = run_question(args.question, paths, config)
-    files = write_preview_files(paths.outputs, args.question, model, result)
-    figure_path = paths.outputs / f"question{args.question}_final_profiles.png"
+    files = write_preview_files(output_dir, args.question, model, result)
+    figure_path = output_dir / f"question{args.question}_final_profiles.png"
     plot_final_profiles(figure_path, model, result)
     report = validate_result(model, result)
 

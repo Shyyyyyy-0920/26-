@@ -30,7 +30,7 @@ def harmonic_mean(left: np.ndarray, right: np.ndarray) -> np.ndarray:
 
 @dataclass(frozen=True)
 class DryingModel:
-    """封装网格、物性、环境边界和热湿有限体积右端项。
+    """封装网格、物性、侧面边界、端面等效源项和热湿有限体积右端项。
 
     状态向量前半段为温度，后半段为干基含水率。问题4通过固定节点编号
     配合随时间变化的物理半径实现材料坐标网格，不额外添加收缩拖曳项。
@@ -42,6 +42,14 @@ class DryingModel:
     radius: RadiusFunction
     heat_transfer_coefficient: float
     mass_transfer_coefficient: float
+    cylinder_length_m: float = 0.25
+    include_end_faces: bool = True
+
+    def __post_init__(self) -> None:
+        """检查端面等效源项所需的圆柱长度。"""
+
+        if self.cylinder_length_m <= 0:
+            raise ValueError("药材长度 cylinder_length_m 必须为正数")
 
     @property
     def node_count(self) -> int:
@@ -83,6 +91,18 @@ class DryingModel:
             * geometry.surface_area_per_length_m
             * (environment_temperature - temperature[-1])
         )
+
+        if self.include_end_faces:
+            # 将两个端面的轴向对流通量除以长度，折算为一维径向方程中的体积热源。
+            # 该闭合近似假设端面状态可由同一半径处的轴向平均状态表示。
+            end_heat_source = (
+                2.0
+                * self.heat_transfer_coefficient
+                / self.cylinder_length_m
+                * (environment_temperature - temperature)
+            )
+            heat_rate += end_heat_source * geometry.volumes_per_length_m2
+
         d_temperature = heat_rate / (
             material.density * material.heat_capacity * geometry.volumes_per_length_m2
         )
@@ -104,6 +124,17 @@ class DryingModel:
             * geometry.surface_area_per_length_m
             * (environment_moisture - moisture[-1])
         )
+
+        if self.include_end_faces:
+            # 两个端面的失水通量等效为体积水分汇；环境更干时该项为负。
+            end_moisture_source = (
+                2.0
+                * self.mass_transfer_coefficient
+                / self.cylinder_length_m
+                * (environment_moisture - moisture)
+            )
+            moisture_rate += end_moisture_source * geometry.volumes_per_length_m2
+
         d_moisture = moisture_rate / geometry.volumes_per_length_m2
 
         return np.concatenate((d_temperature, d_moisture))

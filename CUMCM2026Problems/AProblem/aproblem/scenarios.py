@@ -75,6 +75,8 @@ def run_question(
         radius=radius_function,
         heat_transfer_coefficient=cfg.heat_transfer_coefficient,
         mass_transfer_coefficient=cfg.mass_transfer_coefficient,
+        cylinder_length_m=cfg.cylinder_length_m,
+        include_end_faces=cfg.include_end_faces,
     )
     node_count = model.node_count
     initial_state = np.concatenate(

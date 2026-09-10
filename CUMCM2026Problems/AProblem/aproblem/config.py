@@ -53,6 +53,7 @@ class SimulationConfig:
     """四问共享的数值模拟配置，内部单位统一采用 SI 制。"""
 
     radius_m: float = 0.02
+    cylinder_length_m: float = 0.25
     radial_intervals: int = 20
     dt_s: float = 0.5
     initial_temperature_c: float = 28.0
@@ -62,12 +63,15 @@ class SimulationConfig:
     moisture_threshold: float = 0.15
     plateau_temperature_c: float = 50.0
     plateau_moisture: float = 0.05
+    include_end_faces: bool = True
 
     def validate(self) -> None:
         """在运行前检查会导致求解失败的基础参数。"""
 
         if self.radius_m <= 0:
             raise ValueError("药材半径 radius_m 必须为正数")
+        if self.cylinder_length_m <= 0:
+            raise ValueError("药材长度 cylinder_length_m 必须为正数")
         if self.radial_intervals < 2:
             raise ValueError("径向区间数 radial_intervals 至少为 2")
         if self.dt_s <= 0:
