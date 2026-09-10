@@ -1,3 +1,4 @@
+#NPZ/CSV 预览输出
 from __future__ import annotations
 
 from pathlib import Path

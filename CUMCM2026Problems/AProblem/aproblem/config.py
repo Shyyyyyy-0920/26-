@@ -1,3 +1,4 @@
+#路径、半径、步长和阈值配置
 from __future__ import annotations
 
 from dataclasses import dataclass

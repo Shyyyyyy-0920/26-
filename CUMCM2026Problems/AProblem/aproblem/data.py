@@ -1,3 +1,4 @@
+#附件读取、环境插值、半径 PCHIP
 from __future__ import annotations
 
 from dataclasses import dataclass

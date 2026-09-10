@@ -1,3 +1,4 @@
+#问题 1、2/3、4 的物性接口
 from __future__ import annotations
 
 from dataclasses import dataclass
