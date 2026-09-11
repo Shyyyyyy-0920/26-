@@ -77,6 +77,10 @@ def run_question(
         mass_transfer_coefficient=cfg.mass_transfer_coefficient,
         cylinder_length_m=cfg.cylinder_length_m,
         include_end_faces=cfg.include_end_faces,
+        # 当前校准只针对问题2/3；问题1和问题4继续保留原有调和平均基线。
+        diffusivity_arithmetic_weight=(
+            cfg.question23_diffusivity_arithmetic_weight if question in (2, 3) else 0.0
+        ),
     )
     node_count = model.node_count
     initial_state = np.concatenate(

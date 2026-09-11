@@ -3,7 +3,7 @@
 import numpy as np
 
 from aproblem.grid import RadialGrid
-from aproblem.model import DryingModel
+from aproblem.model import DryingModel, calibrated_diffusivity_mean, harmonic_mean
 from aproblem.physics import Question1Properties
 
 
@@ -79,3 +79,20 @@ def test_uniform_average_rate_uses_all_cylinder_surfaces() -> None:
 
     assert np.isclose(average_temperature_rate, expected_temperature_rate)
     assert np.isclose(average_moisture_rate, expected_moisture_rate)
+
+
+def test_calibrated_diffusivity_mean_blends_harmonic_and_arithmetic_means() -> None:
+    """校准界面值应按给定权重混合调和平均与算术平均。"""
+
+    left = np.array([1.0, 2.0])
+    right = np.array([4.0, 8.0])
+    weight = 0.7247
+    expected = (1.0 - weight) * harmonic_mean(left, right) + weight * 0.5 * (
+        left + right
+    )
+
+    assert np.allclose(calibrated_diffusivity_mean(left, right, weight), expected)
+    assert np.allclose(
+        calibrated_diffusivity_mean(left, right, 0.0), harmonic_mean(left, right)
+    )
+    assert np.allclose(calibrated_diffusivity_mean(left, right, 1.0), 0.5 * (left + right))

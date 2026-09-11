@@ -50,6 +50,7 @@ def write_preview_files(
         radius_m=radius_m,
         cylinder_length_m=model.cylinder_length_m,
         include_end_faces=model.include_end_faces,
+        diffusivity_arithmetic_weight=model.diffusivity_arithmetic_weight,
         event_time_s=np.nan if result.event_time_s is None else result.event_time_s,
     )
 

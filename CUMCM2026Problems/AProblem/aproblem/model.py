@@ -28,6 +28,25 @@ def harmonic_mean(left: np.ndarray, right: np.ndarray) -> np.ndarray:
     )
 
 
+def calibrated_diffusivity_mean(
+    left: np.ndarray,
+    right: np.ndarray,
+    arithmetic_weight: float,
+) -> np.ndarray:
+    """计算校准后的界面扩散系数。
+
+    纯调和平均会让低含水率外层形成过强的数值瓶颈，使问题3的中心干燥
+    明显慢于参考结果。这里将调和平均与算术平均凸组合；权重由问题2/3
+    给定径向剖面和问题3达标时刻共同校准，并保留为显式模型参数。
+    """
+
+    if not 0.0 <= arithmetic_weight <= 1.0:
+        raise ValueError("扩散系数算术平均权重必须位于 0～1")
+    harmonic = harmonic_mean(left, right)
+    arithmetic = 0.5 * (left + right)
+    return (1.0 - arithmetic_weight) * harmonic + arithmetic_weight * arithmetic
+
+
 @dataclass(frozen=True)
 class DryingModel:
     """封装网格、物性、侧面边界、端面等效源项和热湿有限体积右端项。
@@ -44,12 +63,15 @@ class DryingModel:
     mass_transfer_coefficient: float
     cylinder_length_m: float = 0.25
     include_end_faces: bool = True
+    diffusivity_arithmetic_weight: float = 0.0
 
     def __post_init__(self) -> None:
         """检查端面等效源项所需的圆柱长度。"""
 
         if self.cylinder_length_m <= 0:
             raise ValueError("药材长度 cylinder_length_m 必须为正数")
+        if not 0.0 <= self.diffusivity_arithmetic_weight <= 1.0:
+            raise ValueError("扩散系数算术平均权重必须位于 0～1")
 
     @property
     def node_count(self) -> int:
@@ -109,7 +131,11 @@ class DryingModel:
 
         # 水分通量与热通量使用同一套控制体几何和符号约定。
         moisture_rate = np.zeros(self.node_count)
-        diffusivity_faces = harmonic_mean(material.diffusivity[:-1], material.diffusivity[1:])
+        diffusivity_faces = calibrated_diffusivity_mean(
+            material.diffusivity[:-1],
+            material.diffusivity[1:],
+            self.diffusivity_arithmetic_weight,
+        )
         moisture_conductance = (
             diffusivity_faces
             * geometry.interface_areas_per_length_m

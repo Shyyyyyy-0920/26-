@@ -60,6 +60,9 @@ class SimulationConfig:
     initial_moisture: float = 2.55
     heat_transfer_coefficient: float = 25.0
     mass_transfer_coefficient: float = 8.0e-7
+    # 问题2/3的变扩散系数界面插值权重：0 为纯调和平均，1 为纯算术平均。
+    # 0.7247 由问题2/3参考剖面与问题3达标时刻联合校准得到。
+    question23_diffusivity_arithmetic_weight: float = 0.7247
     moisture_threshold: float = 0.15
     plateau_temperature_c: float = 50.0
     plateau_moisture: float = 0.05
@@ -78,3 +81,5 @@ class SimulationConfig:
             raise ValueError("内部时间步长 dt_s 必须为正数")
         if self.initial_moisture <= 0:
             raise ValueError("初始干基含水率 initial_moisture 必须为正数")
+        if not 0.0 <= self.question23_diffusivity_arithmetic_weight <= 1.0:
+            raise ValueError("问题2/3扩散系数算术平均权重必须位于 0～1")
