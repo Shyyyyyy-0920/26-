@@ -24,19 +24,101 @@ AProblem/
 └── outputs/              # 本地运行输出，不覆盖官方模板
 ```
 
-## 快速开始
+## 环境要求与依赖安装
 
-请先在终端进入 `AProblem` 目录，再依次执行下面的 PowerShell 命令。每行命令后的 `#` 内容是用途说明，可以连同命令一起复制到 PowerShell：
+建议使用 **Python 3.11 或更高版本**，不要直接使用系统全局环境。项目所需包已经写在 `pyproject.toml` 中：
+
+| 环境包 | 最低版本 | 用途 |
+|---|---:|---|
+| `numpy` | 1.26 | 数组运算、有限体积状态和结果保存 |
+| `pandas` | 2.1 | 读取附件 Excel、生成 CSV 预览 |
+| `scipy` | 1.11 | PCHIP 半径插值及后续 BDF 对照 |
+| `matplotlib` | 3.8 | 生成中文温度与含水率图像 |
+| `openpyxl` | 3.1 | 供 pandas 读取 `.xlsx`，并用于正式 Excel 导出 |
+| `pytest` | 8.0 | 运行项目测试，属于开发依赖 |
+
+### 方案一：使用 Conda 环境
+
+队员已经有 Anaconda/Miniconda 时，推荐为比赛单独创建环境：
 
 ```powershell
-python -m venv .venv                    # 在当前项目中创建名为 .venv 的独立 Python 虚拟环境
-.venv\Scripts\Activate.ps1             # 激活虚拟环境，后续安装和运行都使用该环境中的 Python
-python -m pip install -e ".[dev]"       # 以可编辑模式安装项目、数值计算依赖和 pytest 测试工具
-pytest                                  # 运行 tests/ 中的全部单元测试，先确认基础算法没有被改坏
+conda create -n cumcm-a python=3.11 -y  # 创建名为 cumcm-a 的独立 Python 3.11 环境
+conda activate cumcm-a                  # 激活该环境，后续命令都在该环境中执行
+cd "E:\数学建模\CUMCM2026Problems\AProblem"  # 进入项目根目录，路径不同的队员应替换成自己的路径
+python -m pip install --upgrade pip setuptools  # 更新安装工具，减少可编辑安装失败的概率
+python -m pip install -e ".[dev]"       # 安装项目及 numpy、pandas、scipy、matplotlib、openpyxl、pytest
+python -m pytest                        # 使用当前环境的 Python 运行全部测试
+```
+
+如果想继续使用已有环境，例如 `si100`，无需重新创建：
+
+```powershell
+conda activate si100                    # 激活已有的 si100 环境
+cd "E:\数学建模\CUMCM2026Problems\AProblem"  # 进入项目根目录
+python -m pip install -e ".[dev]"       # 补齐该环境缺失的全部项目依赖，包括 openpyxl
+python -m pytest                        # 确认安装后的环境能够通过测试
+```
+
+### 方案二：使用 Python 自带虚拟环境
+
+没有 Conda、但已安装 Python 3.11 以上版本时使用：
+
+```powershell
+cd "E:\数学建模\CUMCM2026Problems\AProblem"  # 进入项目根目录
+python -m venv .venv                    # 在项目内创建名为 .venv 的独立虚拟环境
+.\.venv\Scripts\Activate.ps1           # 激活虚拟环境
+python -m pip install --upgrade pip setuptools  # 更新 pip 和项目安装工具
+python -m pip install -e ".[dev]"       # 一次安装程序运行和测试所需的全部环境包
+python -m pytest                        # 运行 tests/ 中的全部测试
+```
+
+安装完成后可以一次检查所有关键包：
+
+```powershell
+python -c "import numpy, pandas, scipy, matplotlib, openpyxl, pytest; print('全部依赖安装成功')"  # 任一包缺失时会直接显示包名
+```
+
+## 快速开始
+
+完成上面的任意一种环境安装方案后，在 `AProblem` 目录执行：
+
+```powershell
+python -m pytest                        # 再次确认当前代码和环境通过全部单元测试
 python -m aproblem --question 1         # 计算问题1，并在 outputs/ 中生成 NPZ、中文表头 CSV 和中文剖面图
 ```
 
 如果 PowerShell 因执行策略阻止激活脚本，可以先在当前终端临时执行 `Set-ExecutionPolicy -Scope Process Bypass`，关闭该终端后设置会自动失效。
+
+### 常见环境报错
+
+如果出现 `No module named 'openpyxl'`，说明当前正在运行程序的 Python 环境缺少 Excel 引擎。在项目目录执行：
+
+```powershell
+python -m pip install -e ".[dev]"       # 推荐：按项目配置补齐所有依赖，而不只安装单个缺失包
+python -c "import openpyxl; print(openpyxl.__version__)"  # 验证 openpyxl 已安装到当前环境
+```
+
+如果旧版本项目安装时出现 `Multiple top-level packages discovered`，说明 `setuptools` 把 `outputs/` 误判成了 Python 包。当前 `pyproject.toml` 已明确只打包 `aproblem`；拉取或复制最新文件后重新执行：
+
+```powershell
+python -m pip install -e ".[dev]"       # 使用修正后的打包配置安装项目和全部依赖
+```
+
+比赛现场如果只需要立刻补装 Excel 读取包，也可以先绕过项目安装：
+
+```powershell
+python -m pip install "openpyxl>=3.1"   # 仅安装缺失的 openpyxl；版本表达式要放在引号内
+```
+
+如果安装后仍提示缺包，通常是 `pip` 和 `python` 指向了不同环境。使用下面命令检查：
+
+```powershell
+where.exe python                        # 查看终端实际找到的所有 python.exe 路径
+python -c "import sys; print(sys.executable)"  # 显示当前运行程序使用的 Python 路径
+python -m pip --version                 # 显示 pip 所属的 Python 环境，路径应与上一行一致
+```
+
+始终使用 `python -m pip ...` 和 `python -m pytest`，可以最大限度避免 Conda、系统 Python 和用户目录中的包互相混用。
 
 默认附件目录为：
 

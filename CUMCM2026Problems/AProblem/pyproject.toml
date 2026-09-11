@@ -18,7 +18,13 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
 
+# 只搜索实际 Python 包，避免把 outputs 等普通目录误判为命名空间包。
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["aproblem*"]
+exclude = ["outputs*", "tests*"]
+namespaces = false
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
-
