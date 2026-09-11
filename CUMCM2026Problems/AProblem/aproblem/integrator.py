@@ -76,9 +76,17 @@ def integrate_heun(
                 fraction = previous_event_value / (previous_event_value - next_event_value)
                 event_time = time_s + fraction * actual_dt
                 event_state = state + fraction * (next_state - state)
-                if not np.isclose(saved_times[-1], event_time):
+                # 事件可能只比最近的整分钟保存点晚很小一段时间。默认
+                # np.isclose 带有相对容差，在十万秒量级会把相差近 1 秒的
+                # 时刻也视为相同，进而漏掉真正达到阈值的事件状态。
+                if event_time > saved_times[-1]:
                     saved_times.append(event_time)
                     saved_states.append(event_state.copy())
+                else:
+                    # 理论上事件位于当前积分步内部且晚于最近保存点；保留
+                    # 覆盖分支以处理恰好落在保存时刻上的浮点舍入情形。
+                    saved_times[-1] = event_time
+                    saved_states[-1] = event_state.copy()
                 break
             previous_event_value = next_event_value
 

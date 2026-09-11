@@ -31,3 +31,24 @@ def test_event_time_is_interpolated() -> None:
     )
     assert result.event_time_s is not None
     assert np.isclose(result.event_time_s, 0.65)
+
+
+def test_event_just_after_saved_time_keeps_the_event_state() -> None:
+    """事件紧邻保存点时，最终记录仍必须是严格插值后的事件状态。"""
+
+    threshold = 0.5999999
+    result = integrate_heun(
+        rhs=lambda _time, _state: np.array([-1.0]),
+        initial_state=np.array([1.0]),
+        end_time_s=1.0,
+        dt_s=0.2,
+        save_every_s=0.4,
+        event=lambda _time, state: float(state[0] - threshold),
+    )
+
+    assert result.event_time_s is not None
+    assert result.event_state is not None
+    assert result.time_s[-1] == result.event_time_s
+    assert np.array_equal(result.state[-1], result.event_state)
+    assert np.isclose(result.time_s[-1], 0.4000001, rtol=0.0, atol=1.0e-12)
+    assert np.isclose(result.state[-1, 0], threshold, rtol=0.0, atol=1.0e-12)
