@@ -54,7 +54,10 @@ class SimulationConfig:
 
     radius_m: float = 0.02
     cylinder_length_m: float = 0.25
-    radial_intervals: int = 20
+    # 问题3/4共用加密径向网格；问题1/2使用各自的网格收敛结果。
+    radial_intervals: int = 40
+    question1_radial_intervals: int = 160
+    question2_radial_intervals: int = 40
     dt_s: float = 0.5
     initial_temperature_c: float = 28.0
     initial_moisture: float = 2.55
@@ -69,7 +72,8 @@ class SimulationConfig:
     moisture_threshold: float = 0.15
     plateau_temperature_c: float = 50.0
     plateau_moisture: float = 0.05
-    include_end_faces: bool = True
+    # 正式四问统一采用无端面的一维径向模型；端面均匀源仅供显式敏感性试算。
+    include_end_faces: bool = False
 
     def validate(self) -> None:
         """在运行前检查会导致求解失败的基础参数。"""
@@ -78,8 +82,14 @@ class SimulationConfig:
             raise ValueError("药材半径 radius_m 必须为正数")
         if self.cylinder_length_m <= 0:
             raise ValueError("药材长度 cylinder_length_m 必须为正数")
-        if self.radial_intervals < 2:
-            raise ValueError("径向区间数 radial_intervals 至少为 2")
+        interval_settings = {
+            "问题3/4": self.radial_intervals,
+            "问题1": self.question1_radial_intervals,
+            "问题2": self.question2_radial_intervals,
+        }
+        for label, intervals in interval_settings.items():
+            if intervals < 2:
+                raise ValueError(f"{label}径向区间数至少为 2")
         if self.dt_s <= 0:
             raise ValueError("内部时间步长 dt_s 必须为正数")
         if self.initial_moisture <= 0:

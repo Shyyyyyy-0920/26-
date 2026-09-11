@@ -1,6 +1,6 @@
 # CUMCM 2026 A题：药材烘干数值模型
 
-本项目采用一维圆柱径向有限体积法，将温度场和干基含水率场统一离散，并使用固定步长 Heun（显式二阶 Runge-Kutta）方法推进。根据最新物理模型，两个端面的对流换热和传质通过轴向积分平均折算为一维体积源/汇，默认参与四问计算，同时保留仅考虑圆柱侧面的消融开关。代码中的模块说明、关键类、函数和主要算法步骤均使用中文注释，便于队员阅读、复核和论文推导。
+本项目采用无端面的一维圆柱径向有限体积法，将温度场和干基含水率场统一离散，并使用固定步长 Heun（显式二阶 Runge-Kutta）方法推进。四问正式结果均解释为远离端面的圆柱中截面径向分布；均匀端面体积源不进入正式计算，仅保留为显式启用的启发式敏感性试算。代码中的模块说明、关键类、函数和主要算法步骤均使用中文注释，便于队员阅读、复核和论文推导。
 
 完整建模、算法选择和验收流程见：[工作流详解_审核完善版.md](../工作流详解_审核完善版.md)。
 
@@ -18,6 +18,7 @@ AProblem/
 │   ├── integrator.py     # Heun推进与终止事件
 │   ├── scenarios.py      # 问题1-4的组装逻辑
 │   ├── outputs.py        # NPZ/CSV预览输出
+│   ├── paper_tables.py   # 按题目表1至表6抽取论文展示数据
 │   ├── plotting.py       # 剖面图与热力图
 │   └── validation.py     # 数值和物理检查
 ├── tests/                # 不依赖竞赛附件的单元测试
@@ -80,15 +81,15 @@ python -c "import numpy, pandas, scipy, matplotlib, openpyxl, pytest; print('全
 
 ## 快速开始
 
-完成上面的任意一种环境安装方案后，在 `AProblem` 目录执行。每个问题都必须分别计算“考虑端面”和“不考虑端面”两种工况；以下以问题1为例：
+完成上面的任意一种环境安装方案后，在 `AProblem` 目录执行。四问正式结果默认均不考虑端面；以下以问题1为例：
 
 ```powershell
 python -m pytest  # 再次确认当前代码和环境通过全部单元测试
-python -m aproblem --question 1 --output-dir "outputs\问题1\考虑端面"  # 计算问题1的复杂工况：计入两个端面，结果单独保存
-python -m aproblem --question 1 --ignore-end-faces --output-dir "outputs\问题1\不考虑端面"  # 计算问题1的简单工况：只计圆柱侧面，结果单独保存
+python -m aproblem --question 1 --output-dir "outputs\问题1\正式结果"  # 默认无端面的一维径向结果
+python -m aproblem --question 1 --include-end-faces --output-dir "outputs\敏感性分析\问题1\均匀端面源"  # 可选启发式敏感性试算
 ```
 
-其中，不添加 `--ignore-end-faces` 时，程序默认**考虑两个端面**；添加 `--ignore-end-faces` 时，程序**不考虑两个端面**。两次计算必须指定不同的 `--output-dir`，否则同名结果文件可能被后一次运行覆盖。
+其中，不添加端面参数时程序默认**不考虑端面**。只有显式添加 `--include-end-faces` 才启用旧的均匀端面体积源近似；该结果不得作为表1至表6的正式结果。旧参数 `--ignore-end-faces` 仍兼容，但因与新默认行为相同而无需再写。
 
 如果 PowerShell 因执行策略阻止激活脚本，可以先在当前终端临时执行 `Set-ExecutionPolicy -Scope Process Bypass`，关闭该终端后设置会自动失效。
 
@@ -132,30 +133,26 @@ python -m pip --version                 # 显示 pip 所属的 Python 环境，�
 也可以显式指定：
 
 ```powershell
-python -m aproblem --question 1 --attachments "完整的附件目录" --output-dir "outputs\问题1\考虑端面"  # 从指定目录读取附件，并计算考虑端面的工况
-python -m aproblem --question 1 --attachments "完整的附件目录" --ignore-end-faces --output-dir "outputs\问题1\不考虑端面"  # 从同一附件目录读取数据，并计算不考虑端面的工况
+python -m aproblem --question 1 --attachments "完整的附件目录" --output-dir "outputs\问题1\正式结果"
+python -m aproblem --question 1 --attachments "完整的附件目录" --include-end-faces --output-dir "outputs\敏感性分析\问题1\均匀端面源"
 ```
 
-### 四个问题的两种工况
+### 四个问题的正式运行
 
-建议始终使用下面统一的目录命名。每个问题运行两条命令，共运行八次：
+四问各运行一次无端面正式模型：
 
 ```powershell
-# 问题1：常物性、固定半径、计算3小时
-python -m aproblem --question 1 --output-dir "outputs\问题1\考虑端面"  # 问题1复杂工况：计入两个端面
-python -m aproblem --question 1 --ignore-end-faces --output-dir "outputs\问题1\不考虑端面"  # 问题1简单工况：忽略两个端面
+# 问题1：常物性、固定半径、计算30分钟
+python -m aproblem --question 1 --output-dir "outputs\问题1\正式结果"
 
 # 问题2：变物性、固定半径、计算3小时
-python -m aproblem --question 2 --output-dir "outputs\问题2\考虑端面"  # 问题2复杂工况：计入两个端面
-python -m aproblem --question 2 --ignore-end-faces --output-dir "outputs\问题2\不考虑端面"  # 问题2简单工况：忽略两个端面
+python -m aproblem --question 2 --output-dir "outputs\问题2\正式结果"
 
 # 问题3：变物性、达到全场含水率阈值时停止
-python -m aproblem --question 3 --output-dir "outputs\问题3\考虑端面"  # 问题3复杂工况：计入两个端面
-python -m aproblem --question 3 --ignore-end-faces --output-dir "outputs\问题3\不考虑端面"  # 问题3简单工况：忽略两个端面
+python -m aproblem --question 3 --output-dir "outputs\问题3\正式结果"
 
 # 问题4：变物性、半径随附件2收缩、达到阈值时停止
-python -m aproblem --question 4 --output-dir "outputs\问题4\考虑端面"  # 问题4复杂工况：计入两个端面
-python -m aproblem --question 4 --ignore-end-faces --output-dir "outputs\问题4\不考虑端面"  # 问题4简单工况：忽略两个端面
+python -m aproblem --question 4 --output-dir "outputs\问题4\正式结果"
 ```
 
 运行完成后的目录结构如下：
@@ -163,47 +160,48 @@ python -m aproblem --question 4 --ignore-end-faces --output-dir "outputs\问题4
 ```text
 outputs/
 ├── 问题1/
-│   ├── 考虑端面/
-│   └── 不考虑端面/
+│   └── 正式结果/
 ├── 问题2/
-│   ├── 考虑端面/
-│   └── 不考虑端面/
+│   └── 正式结果/
 ├── 问题3/
-│   ├── 考虑端面/
-│   └── 不考虑端面/
+│   └── 正式结果/
 └── 问题4/
-    ├── 考虑端面/
-    └── 不考虑端面/
+    └── 正式结果/
 ```
 
-需要试验其他内部时间步时，两种工况应使用相同的 `--dt`。例如，问题1使用 0.25 秒内部步长时：
+每次运行还会在同一结果目录自动生成论文表格 CSV：问题1生成表1、表2，
+问题2生成表3、表4，问题3生成表5，问题4生成表6。表中只保留题目指定时刻和
+径向位置，数值统一保留四位小数；问题3、4会追加包含连续事件时刻的“烘干结束时间”行。
+
+需要试验其他内部时间步时，可用 `--dt` 设置N=20基线步长。例如：
 
 ```powershell
-python -m aproblem --question 1 --dt 0.25 --output-dir "outputs\问题1\时间步0.25秒\考虑端面"  # 使用0.25秒步长重算考虑端面的工况
-python -m aproblem --question 1 --dt 0.25 --ignore-end-faces --output-dir "outputs\问题1\时间步0.25秒\不考虑端面"  # 使用0.25秒步长重算不考虑端面的工况
+python -m aproblem --question 1 --dt 0.25 --output-dir "outputs\问题1\时间步敏感性\基线0.25秒"
 ```
 
-## 两个端面的处理
+## 端面因素的处理
 
-设圆柱长度为 `L=0.25 m`。二维轴向方程沿长度积分后，用同一半径处的轴向平均状态近似端面状态，得到
+正式模型采用长圆柱中截面近似，不引入任何端面源项。有限端面可能使实际干燥略快，但题目没有要求轴向位置，也没有提供足以可靠闭合二维端面效应的信息，因此将其列为模型局限性。
+
+代码仍保留以下旧的均匀体积源近似，仅供添加 `--include-end-faces` 后进行敏感性试算：
 
 ```text
 温度体积源：S_T = (2 h_T / L) · (T_air - T)
 水分体积汇：S_C = (2 h_m / L) · (C_air - C)
 ```
 
-两个源项作用于每个径向控制体；原有最外节点 Robin 边界仍只表示圆柱侧面，因此不会重复计算。该方法是轴向平均的拟一维闭合，不等价于完整二维轴对称模型。正式论文应同时给出默认模型和 `--ignore-end-faces` 的对比结果。
+该近似会跳过真实的轴向扩散过程，可能明显放大端面影响，不得进入表1至表6，也不得称为严格的端面效应上界。若需正式研究端面，应建立含径向和轴向坐标的二维轴对称模型。
 
 ## 当前约定
 
 - 所有内部计算使用 SI 单位：m、s、K/Celsius 差值、kg/kg。
-- 圆柱长度默认为 0.25 m；四问默认计入两个端面的等效换热和失水贡献。
-- 固定半径问题使用 20 个径向区间，即 21 个节点，恰好对应 0.0-2.0 cm、间隔 0.1 cm。
-- 默认内部步长 0.5 s。问题1、2分别每1 s保存，问题3、4每60 s保存。
-- 问题2/3的界面扩散系数采用调和平均与算术平均的校准混合，算术平均权重默认为 0.7247；问题1和问题4仍使用调和平均。
+- 圆柱长度默认为0.25 m；四问正式计算默认关闭端面源项，只考虑侧表面换热和传质。
+- 问题1使用160个径向区间，问题2、3、4使用40个；论文取点通过空间插值得到。
+- 默认 N=20 基线内部步长为0.5 s；四问均按网格间距平方自动缩小，问题3、4每60 s保存。
+- 问题2/3的界面扩散算术平均权重为0.7247；问题4使用单独校准权重0.8705。
 - 问题3、4在附件1结束后将烘房条件保持为 50°C 和 0.05 kg/kg。
-- `outputs` 目前输出便于检查的 NPZ 和 CSV；官方 result*.xlsx 的模板填充单独实现，避免早期调试覆盖模板。
-- 问题4的预览 CSV 使用归一化半径 `xi=r/R(t)` 作为列；NPZ 同时保存每个输出时刻的实际半径，正式导出时再插值到题目要求的物理距离。
+- `outputs` 输出完整 NPZ、调试 CSV、论文表1至表6 CSV；官方 result*.xlsx 模板填充仍单独实现。
+- 问题4完整预览使用归一化半径 `xi=r/R(t)`，论文表6则自动换算到固定物理距离并单列实时药材表面。
 
 ## 图表约定
 
@@ -215,7 +213,7 @@ python -m aproblem --question 1 --dt 0.25 --ignore-end-faces --output-dir "outpu
 ## 建议开发顺序
 
 1. 完成并核验问题1。
-2. 对问题1运行含端面/仅侧面的消融对比，核验等效源项。
+2. 将有限端面写入模型局限性；如需敏感性分析，再显式启用旧均匀源试算。
 3. 在同一固定半径内核上切换问题2/3物性。
 4. 加入问题3的含水率阈值事件。
 5. 使用归一化径向坐标处理问题4的收缩半径。

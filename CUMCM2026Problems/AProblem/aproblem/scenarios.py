@@ -67,7 +67,14 @@ def run_question(
     radius_data = load_radius(paths.radius_file) if spec.shrinking else None
     radius_function = radius_data if radius_data is not None else lambda _time: cfg.radius_m
 
-    grid = RadialGrid(cfg.radial_intervals)
+    radial_intervals = (
+        cfg.question1_radial_intervals
+        if question == 1
+        else cfg.question2_radial_intervals
+        if question == 2
+        else cfg.radial_intervals
+    )
+    grid = RadialGrid(radial_intervals)
     model = DryingModel(
         grid=grid,
         properties=_property_model(question),
@@ -99,11 +106,14 @@ def run_question(
         # 使用全场最大含水率判断“药材各处均低于阈值”，不预设中心必为最大值。
         event = lambda _time, state: float(np.max(state[node_count:]) - cfg.moisture_threshold)
 
+    # 显式扩散推进的稳定步长与网格间距平方成正比。dt_s 始终表示
+    # N=20基线步长，四问均按 (20/N)^2 自动缩放。
+    effective_dt_s = cfg.dt_s * (20.0 / radial_intervals) ** 2
     result = integrate_heun(
         rhs=model.rhs,
         initial_state=initial_state,
         end_time_s=spec.end_time_s,
-        dt_s=cfg.dt_s,
+        dt_s=effective_dt_s,
         save_every_s=spec.save_every_s,
         event=event,
     )

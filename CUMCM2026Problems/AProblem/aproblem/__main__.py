@@ -7,6 +7,7 @@ from pathlib import Path
 
 from .config import ProjectPaths, SimulationConfig
 from .outputs import write_preview_files
+from .paper_tables import write_paper_tables
 from .plotting import plot_final_profiles
 from .scenarios import run_question
 from .validation import validate_result
@@ -35,12 +36,26 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="结果输出目录；不填写时使用项目内的 outputs 目录",
     )
-    parser.add_argument("--dt", type=float, default=0.5, help="内部时间步长（秒）")
     parser.add_argument(
-        "--ignore-end-faces",
-        action="store_true",
-        help="关闭两个端面的轴向平均等效源项，仅计算圆柱侧面换热和传质",
+        "--dt",
+        type=float,
+        default=0.5,
+        help="N=20时的基线时间步长（秒）；各题网格加密后按平方律自动缩小",
     )
+    end_face_group = parser.add_mutually_exclusive_group()
+    end_face_group.add_argument(
+        "--include-end-faces",
+        action="store_true",
+        help="仅用于敏感性分析：启用均匀端面等效源项（正式结果默认不启用）",
+    )
+    # 兼容旧命令；当前默认已是不考虑端面，因此该参数不再显示在帮助中。
+    end_face_group.add_argument(
+        "--ignore-end-faces",
+        dest="include_end_faces",
+        action="store_false",
+        help=argparse.SUPPRESS,
+    )
+    parser.set_defaults(include_end_faces=False)
     return parser.parse_args()
 
 
@@ -52,12 +67,13 @@ def main() -> None:
     output_dir = (args.output_dir or paths.outputs).resolve()
     config = SimulationConfig(
         dt_s=args.dt,
-        include_end_faces=not args.ignore_end_faces,
+        include_end_faces=args.include_end_faces,
     )
 
     # 四个问题共用相同入口，只在场景组装阶段切换物性、时长和半径函数。
     model, result = run_question(args.question, paths, config)
     files = write_preview_files(output_dir, args.question, model, result)
+    files.extend(write_paper_tables(output_dir, args.question, model, result))
     figure_path = output_dir / f"question{args.question}_final_profiles.png"
     plot_final_profiles(figure_path, model, result)
     report = validate_result(model, result)

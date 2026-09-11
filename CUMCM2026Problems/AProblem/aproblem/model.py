@@ -62,7 +62,7 @@ class DryingModel:
     heat_transfer_coefficient: float
     mass_transfer_coefficient: float
     cylinder_length_m: float = 0.25
-    include_end_faces: bool = True
+    include_end_faces: bool = False
     diffusivity_arithmetic_weight: float = 0.0
 
     def __post_init__(self) -> None:

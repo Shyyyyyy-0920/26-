@@ -8,6 +8,16 @@ from aproblem.model import DryingModel, calibrated_diffusivity_mean, harmonic_me
 from aproblem.physics import Question1Properties
 
 
+def test_default_configuration_uses_radial_model_without_end_faces() -> None:
+    """四问正式计算的默认配置必须关闭均匀端面源项。"""
+
+    config = SimulationConfig()
+    assert config.include_end_faces is False
+    assert config.question1_radial_intervals == 160
+    assert config.question2_radial_intervals == 40
+    assert config.radial_intervals == 40
+
+
 def test_uniform_state_equal_to_environment_is_stationary() -> None:
     """内部状态等于环境边界时，温度和含水率均不应发生变化。"""
 
@@ -109,3 +119,20 @@ def test_question4_diffusivity_weight_is_bounded() -> None:
             assert "问题4扩散系数算术平均权重" in str(error)
         else:
             raise AssertionError(f"问题4非法扩散权重 {weight} 未触发校验错误")
+
+
+def test_question_specific_radial_intervals_are_validated() -> None:
+    """Q1/Q2独立网格与Q3/Q4基线网格均必须至少包含两个区间。"""
+
+    invalid_configs = (
+        SimulationConfig(question1_radial_intervals=1),
+        SimulationConfig(question2_radial_intervals=1),
+        SimulationConfig(radial_intervals=1),
+    )
+    for config in invalid_configs:
+        try:
+            config.validate()
+        except ValueError as error:
+            assert "径向区间数至少为 2" in str(error)
+        else:
+            raise AssertionError("非法径向区间数未触发校验错误")
