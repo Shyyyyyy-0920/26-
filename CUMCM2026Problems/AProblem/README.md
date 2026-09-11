@@ -80,12 +80,15 @@ python -c "import numpy, pandas, scipy, matplotlib, openpyxl, pytest; print('全
 
 ## 快速开始
 
-完成上面的任意一种环境安装方案后，在 `AProblem` 目录执行：
+完成上面的任意一种环境安装方案后，在 `AProblem` 目录执行。每个问题都必须分别计算“考虑端面”和“不考虑端面”两种工况；以下以问题1为例：
 
 ```powershell
-python -m pytest                        # 再次确认当前代码和环境通过全部单元测试
-python -m aproblem --question 1         # 计算问题1，并在 outputs/ 中生成 NPZ、中文表头 CSV 和中文剖面图
+python -m pytest  # 再次确认当前代码和环境通过全部单元测试
+python -m aproblem --question 1 --output-dir "outputs\问题1\考虑端面"  # 计算问题1的复杂工况：计入两个端面，结果单独保存
+python -m aproblem --question 1 --ignore-end-faces --output-dir "outputs\问题1\不考虑端面"  # 计算问题1的简单工况：只计圆柱侧面，结果单独保存
 ```
+
+其中，不添加 `--ignore-end-faces` 时，程序默认**考虑两个端面**；添加 `--ignore-end-faces` 时，程序**不考虑两个端面**。两次计算必须指定不同的 `--output-dir`，否则同名结果文件可能被后一次运行覆盖。
 
 如果 PowerShell 因执行策略阻止激活脚本，可以先在当前终端临时执行 `Set-ExecutionPolicy -Scope Process Bypass`，关闭该终端后设置会自动失效。
 
@@ -129,28 +132,55 @@ python -m pip --version                 # 显示 pip 所属的 Python 环境，�
 也可以显式指定：
 
 ```powershell
-python -m aproblem --question 1 --attachments "完整的附件目录"  # 不使用默认路径，改为从指定目录读取附件1.xlsx和附件2.xlsx
+python -m aproblem --question 1 --attachments "完整的附件目录" --output-dir "outputs\问题1\考虑端面"  # 从指定目录读取附件，并计算考虑端面的工况
+python -m aproblem --question 1 --attachments "完整的附件目录" --ignore-end-faces --output-dir "outputs\问题1\不考虑端面"  # 从同一附件目录读取数据，并计算不考虑端面的工况
 ```
 
-其余问题只需修改题号：
+### 四个问题的两种工况
+
+建议始终使用下面统一的目录命名。每个问题运行两条命令，共运行八次：
 
 ```powershell
-python -m aproblem --question 2         # 计算问题2：变物性、固定半径、计算3小时
-python -m aproblem --question 3         # 计算问题3：变物性、达到全场含水率阈值时停止
-python -m aproblem --question 4         # 计算问题4：变物性、半径随附件2收缩、达到阈值时停止
+# 问题1：常物性、固定半径、计算3小时
+python -m aproblem --question 1 --output-dir "outputs\问题1\考虑端面"  # 问题1复杂工况：计入两个端面
+python -m aproblem --question 1 --ignore-end-faces --output-dir "outputs\问题1\不考虑端面"  # 问题1简单工况：忽略两个端面
+
+# 问题2：变物性、固定半径、计算3小时
+python -m aproblem --question 2 --output-dir "outputs\问题2\考虑端面"  # 问题2复杂工况：计入两个端面
+python -m aproblem --question 2 --ignore-end-faces --output-dir "outputs\问题2\不考虑端面"  # 问题2简单工况：忽略两个端面
+
+# 问题3：变物性、达到全场含水率阈值时停止
+python -m aproblem --question 3 --output-dir "outputs\问题3\考虑端面"  # 问题3复杂工况：计入两个端面
+python -m aproblem --question 3 --ignore-end-faces --output-dir "outputs\问题3\不考虑端面"  # 问题3简单工况：忽略两个端面
+
+# 问题4：变物性、半径随附件2收缩、达到阈值时停止
+python -m aproblem --question 4 --output-dir "outputs\问题4\考虑端面"  # 问题4复杂工况：计入两个端面
+python -m aproblem --question 4 --ignore-end-faces --output-dir "outputs\问题4\不考虑端面"  # 问题4简单工况：忽略两个端面
 ```
 
-需要试验其他内部时间步时可增加 `--dt`，例如：
+运行完成后的目录结构如下：
 
-```powershell
-python -m aproblem --question 1 --dt 0.25  # 用0.25秒内部步长重算问题1，可用于时间步收敛对照
+```text
+outputs/
+├── 问题1/
+│   ├── 考虑端面/
+│   └── 不考虑端面/
+├── 问题2/
+│   ├── 考虑端面/
+│   └── 不考虑端面/
+├── 问题3/
+│   ├── 考虑端面/
+│   └── 不考虑端面/
+└── 问题4/
+    ├── 考虑端面/
+    └── 不考虑端面/
 ```
 
-默认模型计入两个端面。建议把两组消融结果写到不同目录，避免后运行的结果覆盖先前文件：
+需要试验其他内部时间步时，两种工况应使用相同的 `--dt`。例如，问题1使用 0.25 秒内部步长时：
 
 ```powershell
-python -m aproblem --question 1 --output-dir outputs/含端面       # 使用默认端面修正，将结果保存到“含端面”子目录
-python -m aproblem --question 1 --ignore-end-faces --output-dir outputs/仅侧面  # 关闭端面源项，将对照结果保存到“仅侧面”子目录
+python -m aproblem --question 1 --dt 0.25 --output-dir "outputs\问题1\时间步0.25秒\考虑端面"  # 使用0.25秒步长重算考虑端面的工况
+python -m aproblem --question 1 --dt 0.25 --ignore-end-faces --output-dir "outputs\问题1\时间步0.25秒\不考虑端面"  # 使用0.25秒步长重算不考虑端面的工况
 ```
 
 ## 两个端面的处理
