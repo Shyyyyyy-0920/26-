@@ -27,8 +27,8 @@ def write_preview_files(
 ) -> list[Path]:
     """保存全精度压缩结果和带中文表头的 CSV 预览文件。
 
-    问题4的 CSV 使用归一化半径；正式 Excel 导出时还需映射到题目要求的
-    固定物理距离。NPZ 保留英文键名，便于后续代码稳定读取。
+    问题4除归一化网格 CSV 外，额外输出题目表格所需的中心、0.5 cm、
+    1.0 cm 和实时表面值。NPZ 保留英文键名，便于后续代码稳定读取。
     """
 
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -67,4 +67,42 @@ def write_preview_files(
     moisture_path = output_dir / f"question{question}_moisture_preview.csv"
     temperature_frame.to_csv(temperature_path, index=False, encoding="utf-8-sig")
     moisture_frame.to_csv(moisture_path, index=False, encoding="utf-8-sig")
-    return [npz_path, temperature_path, moisture_path]
+    files = [npz_path, temperature_path, moisture_path]
+
+    if question == 4:
+        physical_positions_m = (0.0, 0.005, 0.010)
+
+        def physical_position_frame(values: np.ndarray) -> pd.DataFrame:
+            sampled = np.empty((len(result.time_s), 4), dtype=float)
+            for row, current_radius_m in enumerate(radius_m):
+                normalized_positions = np.asarray(physical_positions_m) / current_radius_m
+                sampled[row, :3] = np.interp(
+                    normalized_positions,
+                    radial_fraction,
+                    values[row],
+                )
+                sampled[row, 3] = values[row, -1]
+            frame = pd.DataFrame(
+                sampled,
+                columns=("中心", "距中心 0.5 cm", "距中心 1.0 cm", "药材表面"),
+            )
+            frame.insert(0, "实际半径（cm）", radius_m * 100.0)
+            frame.insert(0, "时间（h）", result.time_s / 3600.0)
+            frame.insert(0, "时间（s）", result.time_s)
+            return frame
+
+        temperature_physical_path = output_dir / "question4_temperature_physical_positions.csv"
+        moisture_physical_path = output_dir / "question4_moisture_physical_positions.csv"
+        physical_position_frame(temperature).to_csv(
+            temperature_physical_path,
+            index=False,
+            encoding="utf-8-sig",
+        )
+        physical_position_frame(moisture).to_csv(
+            moisture_physical_path,
+            index=False,
+            encoding="utf-8-sig",
+        )
+        files.extend((temperature_physical_path, moisture_physical_path))
+
+    return files

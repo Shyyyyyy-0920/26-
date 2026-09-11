@@ -2,6 +2,7 @@
 
 import numpy as np
 
+from aproblem.config import SimulationConfig
 from aproblem.grid import RadialGrid
 from aproblem.model import DryingModel, calibrated_diffusivity_mean, harmonic_mean
 from aproblem.physics import Question1Properties
@@ -96,3 +97,15 @@ def test_calibrated_diffusivity_mean_blends_harmonic_and_arithmetic_means() -> N
         calibrated_diffusivity_mean(left, right, 0.0), harmonic_mean(left, right)
     )
     assert np.allclose(calibrated_diffusivity_mean(left, right, 1.0), 0.5 * (left + right))
+
+
+def test_question4_diffusivity_weight_is_bounded() -> None:
+    """问题4的独立校准权重必须保持在调和与算术平均之间。"""
+
+    for weight in (-0.01, 1.01):
+        try:
+            SimulationConfig(question4_diffusivity_arithmetic_weight=weight).validate()
+        except ValueError as error:
+            assert "问题4扩散系数算术平均权重" in str(error)
+        else:
+            raise AssertionError(f"问题4非法扩散权重 {weight} 未触发校验错误")

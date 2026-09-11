@@ -77,9 +77,13 @@ def run_question(
         mass_transfer_coefficient=cfg.mass_transfer_coefficient,
         cylinder_length_m=cfg.cylinder_length_m,
         include_end_faces=cfg.include_end_faces,
-        # 当前校准只针对问题2/3；问题1和问题4继续保留原有调和平均基线。
+        # 问题2/3和收缩条件下的问题4分别使用各自的校准权重。
         diffusivity_arithmetic_weight=(
-            cfg.question23_diffusivity_arithmetic_weight if question in (2, 3) else 0.0
+            cfg.question23_diffusivity_arithmetic_weight
+            if question in (2, 3)
+            else cfg.question4_diffusivity_arithmetic_weight
+            if question == 4
+            else 0.0
         ),
     )
     node_count = model.node_count
