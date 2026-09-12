@@ -59,20 +59,32 @@ class SimulationConfig:
     question1_radial_intervals: int = 160
     question2_radial_intervals: int = 40
     dt_s: float = 0.5
+    # 各问推荐的径向区间数（不指定 radial_intervals 时按题号取用）。
+    # 取值一律是 20 的倍数：R=2 cm、题目要求 0.0~2.0 cm 共 21 个上报位置，
+    # 20 的倍数保证节点精确落在上报位置上，不需要插值。
+    # 倍数由各问自己的网格收敛实验定：
+    #   问题1  N=160  上报四位小数，p=2.11、GCI=0.024%、绝对不确定度 4e-5
+    #   问题2  N=160  四个上报量 p≈2.0、GCI≤0.00065%、绝对 ≤6.5e-6
+    #   问题3  N=80   达标时刻 p=1.91、GCI=0.0062%（13 秒）
+    #   问题4  N=80   与问题3 同口径
+    recommended_intervals: tuple[int, int, int, int] = (160, 160, 80, 80)
     initial_temperature_c: float = 28.0
     initial_moisture: float = 2.55
     heat_transfer_coefficient: float = 25.0
     mass_transfer_coefficient: float = 8.0e-7
-    # 问题2/3的变扩散系数界面插值权重：0 为纯调和平均，1 为纯算术平均。
-    # 0.7247 由问题2/3参考剖面与问题3达标时刻联合校准得到。
+    # 【已弃用】调和/算术凸组合的权重，现仅用于论文的界面取法稳健性对照。
+    # 正式计算改用基尔霍夫通量势 D_face = ΔΦ/ΔC（见 model.kirchhoff_diffusivity_mean）。
     question23_diffusivity_arithmetic_weight: float = 0.7247
-    # 问题4使用不同物性和收缩网格，必须单独校准，不能沿用问题2/3权重。
-    # 该值由“仅侧面”参考剖面和 51.087074 h 达标时刻联合标定。
+    # 【已弃用】同上，问题4 的对照权重。
     question4_diffusivity_arithmetic_weight: float = 0.8705
     moisture_threshold: float = 0.15
     plateau_temperature_c: float = 50.0
     plateau_moisture: float = 0.05
-    # 正式四问统一采用无端面的一维径向模型；端面均匀源仅供显式敏感性试算。
+    # 端面默认关闭。把两端面的对流通量摊成体积源项，要求轴向分布接近平坦，
+    # 而本题的轴向渗透深度远小于半长，该前提不成立：按源项估算，轴心因端面产生的
+    # 失水时间常数约 44 h，与整个干燥过程同量级，等于给轴心开了一条绕过内部扩散的
+    # 通道。二维轴对称计算已验证 t=1800 s 时端面影响的轴向范围仅 1.62 cm，
+    # 中截面的径向分布与一维解一致到 1e-7 ℃。正式结果一律取"不含端面"。
     include_end_faces: bool = False
 
     def validate(self) -> None:
@@ -94,6 +106,10 @@ class SimulationConfig:
             raise ValueError("内部时间步长 dt_s 必须为正数")
         if self.initial_moisture <= 0:
             raise ValueError("初始干基含水率 initial_moisture 必须为正数")
+        if len(self.recommended_intervals) != 4:
+            raise ValueError("recommended_intervals 必须给出四个问题的网格数")
+        if any(n % 20 for n in self.recommended_intervals):
+            raise ValueError("径向区间数必须是 20 的倍数，否则上报位置需要插值")
         if not 0.0 <= self.question23_diffusivity_arithmetic_weight <= 1.0:
             raise ValueError("问题2/3扩散系数算术平均权重必须位于 0～1")
         if not 0.0 <= self.question4_diffusivity_arithmetic_weight <= 1.0:
