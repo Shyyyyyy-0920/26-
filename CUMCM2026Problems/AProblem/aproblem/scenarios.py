@@ -67,14 +67,10 @@ def run_question(
     radius_data = load_radius(paths.radius_file) if spec.shrinking else None
     radius_function = radius_data if radius_data is not None else lambda _time: cfg.radius_m
 
-    radial_intervals = (
-        cfg.question1_radial_intervals
-        if question == 1
-        else cfg.question2_radial_intervals
-        if question == 2
-        else cfg.radial_intervals
-    )
-    grid = RadialGrid(radial_intervals)
+    # 未显式指定时按题号取推荐网格（由各问自己的收敛性实验定，见 config 注释）。
+    intervals = (cfg.radial_intervals if cfg.radial_intervals != 20
+                 else cfg.recommended_intervals[question - 1])
+    grid = RadialGrid(intervals)
     model = DryingModel(
         grid=grid,
         properties=_property_model(question),
@@ -84,14 +80,6 @@ def run_question(
         mass_transfer_coefficient=cfg.mass_transfer_coefficient,
         cylinder_length_m=cfg.cylinder_length_m,
         include_end_faces=cfg.include_end_faces,
-        # 问题2/3和收缩条件下的问题4分别使用各自的校准权重。
-        diffusivity_arithmetic_weight=(
-            cfg.question23_diffusivity_arithmetic_weight
-            if question in (2, 3)
-            else cfg.question4_diffusivity_arithmetic_weight
-            if question == 4
-            else 0.0
-        ),
     )
     node_count = model.node_count
     initial_state = np.concatenate(
